@@ -82,7 +82,7 @@ def build_datasets(cfg):
     for ds, k in ((train, n.max_train_episodes), (val, n.max_val_episodes)):
         if k is not None:
             ds.clip_indices = [c for c in ds.clip_indices if c[0] < k]
-        if n.clip_stride > 1:  # neighbouring clips overlap almost fully; keep every clip_stride-th start
+        if n.get("clip_stride", 1) > 1:  # neighbouring clips overlap almost fully; keep every clip_stride-th start
             ds.clip_indices = [c for c in ds.clip_indices if c[1] % n.clip_stride == 0]
 
     transforms = [get_img_preprocessor(source="pixels", target="pixels", img_size=cfg.img_size)]
