@@ -72,7 +72,7 @@ def main():
     ap.add_argument("--weights", default=None, help="default: last weights_epoch_*.pt")
     ap.add_argument("--max-k", type=int, default=8)
     ap.add_argument("--max-clips", type=int, default=20000)
-    ap.add_argument("--batch-size", type=int, default=256)
+    ap.add_argument("--batch-size", type=int, default=64)
     ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
 
