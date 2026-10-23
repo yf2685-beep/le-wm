@@ -1,5 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=lewm-inspect
+#SBATCH --account=torch_pr_926_general
 #SBATCH --partition=cs
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=64G
