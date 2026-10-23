@@ -65,6 +65,7 @@ def rollout(model, emb_ctx, act_emb, H, K):
     return torch.cat(preds, dim=1)
 
 
+@torch.no_grad()
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--run", required=True)
