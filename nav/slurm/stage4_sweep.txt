@@ -1,0 +1,28 @@
+run_name=s4_xy_fs4_h3_seed3072 nav.action_rep=xy nav.frameskip=4 seed=3072
+run_name=s4_xy_fs4_h3_seed1 nav.action_rep=xy nav.frameskip=4 seed=1
+run_name=s4_xy_fs4_h3_seed2 nav.action_rep=xy nav.frameskip=4 seed=2
+run_name=s4_xy_fs8_h3_seed3072 nav.action_rep=xy nav.frameskip=8 seed=3072
+run_name=s4_xy_fs8_h3_seed1 nav.action_rep=xy nav.frameskip=8 seed=1
+run_name=s4_xy_fs8_h3_seed2 nav.action_rep=xy nav.frameskip=8 seed=2
+run_name=s4_xyt_fs4_h3_seed3072 nav.action_rep=xyt nav.frameskip=4 seed=3072
+run_name=s4_xyt_fs4_h3_seed1 nav.action_rep=xyt nav.frameskip=4 seed=1
+run_name=s4_xyt_fs4_h3_seed2 nav.action_rep=xyt nav.frameskip=4 seed=2
+run_name=s4_xyt_fs8_h3_seed3072 nav.action_rep=xyt nav.frameskip=8 seed=3072
+run_name=s4_xyt_fs8_h3_seed1 nav.action_rep=xyt nav.frameskip=8 seed=1
+run_name=s4_xyt_fs8_h3_seed2 nav.action_rep=xyt nav.frameskip=8 seed=2
+run_name=s4_xysc_fs4_h3_seed3072 nav.action_rep=xysc nav.frameskip=4 seed=3072
+run_name=s4_xysc_fs4_h3_seed1 nav.action_rep=xysc nav.frameskip=4 seed=1
+run_name=s4_xysc_fs4_h3_seed2 nav.action_rep=xysc nav.frameskip=4 seed=2
+run_name=s4_xysc_fs8_h3_seed3072 nav.action_rep=xysc nav.frameskip=8 seed=3072
+run_name=s4_xysc_fs8_h3_seed1 nav.action_rep=xysc nav.frameskip=8 seed=1
+run_name=s4_xysc_fs8_h3_seed2 nav.action_rep=xysc nav.frameskip=8 seed=2
+run_name=s4_disc_fs4_h3_seed3072 nav.action_rep=disc nav.frameskip=4 seed=3072
+run_name=s4_disc_fs4_h3_seed1 nav.action_rep=disc nav.frameskip=4 seed=1
+run_name=s4_disc_fs4_h3_seed2 nav.action_rep=disc nav.frameskip=4 seed=2
+run_name=s4_disc_fs8_h3_seed3072 nav.action_rep=disc nav.frameskip=8 seed=3072
+run_name=s4_disc_fs8_h3_seed1 nav.action_rep=disc nav.frameskip=8 seed=1
+run_name=s4_disc_fs8_h3_seed2 nav.action_rep=disc nav.frameskip=8 seed=2
+run_name=s4diag_xy_fs4_h1_seed3072 nav.action_rep=xy nav.frameskip=4 seed=3072 history_size=1
+run_name=s4diag_xyt_fs4_h1_seed3072 nav.action_rep=xyt nav.frameskip=4 seed=3072 history_size=1
+run_name=s4diag_xysc_fs4_h1_seed3072 nav.action_rep=xysc nav.frameskip=4 seed=3072 history_size=1
+run_name=s4diag_disc_fs4_h1_seed3072 nav.action_rep=disc nav.frameskip=4 seed=3072 history_size=1
