@@ -14,6 +14,7 @@ nav:
   # giving ~75% forward / ~12% left / ~12% right.
   disc_tau_deg: ${eval:'1.25 * ${nav.frameskip}'}
   disc_eps_m: 0.02         # disc: planar step < eps -> stop (never happens in NavDP: min step ~0.1 m @ fs4)
+  clip_stride: 1           # keep clips whose start frame % clip_stride == 0 (1 = all; frameskip = ~4x faster epochs)
   max_train_episodes: null # debug / overfit subsets
   max_val_episodes: null
 
