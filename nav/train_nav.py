@@ -32,7 +32,8 @@ from module import SIGReg  # noqa: E402
 from navdp_dataset import NavDPDataset  # noqa: E402
 from utils import ZScoreNormalizer, get_img_preprocessor  # noqa: E402
 
-OmegaConf.register_new_resolver("eval", eval, replace=True)
+if not OmegaConf.has_resolver("eval"):  # stable_pretraining registers it on import
+    OmegaConf.register_new_resolver("eval", eval)
 
 
 def nav_forward(self, batch, stage, cfg):

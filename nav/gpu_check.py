@@ -6,6 +6,7 @@ import sys
 import time
 
 import hydra
+import stable_pretraining  # noqa: F401  (registers the `eval` resolver)
 import torch
 from omegaconf import OmegaConf
 
@@ -18,7 +19,8 @@ print("torch", torch.__version__, "cuda", torch.version.cuda, "available", torch
 assert torch.cuda.is_available(), "CUDA not available with this torch build"
 print("device", torch.cuda.get_device_name(0))
 
-OmegaConf.register_new_resolver("eval", eval, replace=True)
+if not OmegaConf.has_resolver("eval"):  # stable_pretraining registers it on import
+    OmegaConf.register_new_resolver("eval", eval)
 with hydra.initialize(version_base=None, config_path="../config/train"):
     cfg = hydra.compose(config_name="lewm", overrides=["data=tworoom"])
 cfg.model.action_encoder.input_dim = FRAMESKIP * ACTION_DIM
