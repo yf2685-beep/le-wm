@@ -1,0 +1,59 @@
+# LeWM on NavDP navigation data (nav/train_nav.py). Model and loss match lewm.yaml.
+defaults:
+  - _self_
+  - launcher: local
+  - model: lewm
+
+nav:
+  h5_dir: ${oc.env:NAVDP_H5_DIR}
+  train_file: train.h5
+  val_file: val.h5
+  action_rep: xyt          # xy | xyt | xysc | disc | concat
+  frameskip: 4             # world-model step in raw frames (~3.2 cm each): 4 ~ 13 cm, 8 ~ 26 cm
+  disc_tau_deg: 5.0        # disc: |dtheta| >= tau -> turn (set from stage-2 stats)
+  disc_eps_m: 0.02         # disc: planar step < eps -> stop
+  max_train_episodes: null # debug / overfit subsets
+  max_val_episodes: null
+
+run_root: ${oc.env:LEWM_RUN_ROOT}
+run_name: ${nav.action_rep}_fs${nav.frameskip}_${loss.pred}_seed${seed}
+ckpt_every_n_steps: 500
+
+hydra:
+  run:
+    dir: ${run_root}/${run_name}/hydra
+
+num_workers: 8
+seed: 3072
+img_size: 224
+embed_dim: 192
+history_size: 3
+num_preds: 1
+
+trainer:
+  max_epochs: 10
+  devices: 1
+  accelerator: gpu
+  precision: bf16-mixed
+  gradient_clip_val: 1.0
+  log_every_n_steps: 50
+
+loader:
+  batch_size: 128
+  num_workers: ${num_workers}
+  persistent_workers: True
+  prefetch_factor: 3
+  pin_memory: True
+
+optimizer:
+  type: AdamW
+  lr: 5e-5
+  weight_decay: 1e-3
+
+loss:
+  pred: mse                # mse (LeWM default) | l1
+  sigreg:
+    weight: 0.09
+    kwargs:
+      knots: 17
+      num_proj: 1024
