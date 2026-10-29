@@ -6,6 +6,8 @@ For held-out clips (default: val split) it reports, per rollout step k = 1..K:
 and once per run:
   * collapse checks on encoder embeddings: per-dim std, effective rank, SIGReg statistic
   * a linear (ridge) probe predicting the true block action [dx, dy, dtheta] from (z_t, z_{t+1})
+  * action discrimination (k=1): the last context action is swapped for those of N_CAND-1 other clips in
+    the batch; accuracy = how often the true action gives the lowest prediction error (chance = 1/N_CAND)
 
 Rollout: the context holds the last `history_size` (predicted or true) embeddings; step k uses actions
 a_{t-H+k .. t+k-1}, exactly as JEPA.rollout. Physical distance per step is reported so strides can be
@@ -52,6 +54,22 @@ def ridge_r2(x, y, lam=1e-2):
     ss_res = ((y[n:] - pred) ** 2).sum(0)
     ss_tot = ((y[n:] - y[n:].mean(0)) ** 2).sum(0)
     return (1 - ss_res / ss_tot).tolist()
+
+
+N_CAND = 16
+
+
+@torch.no_grad()
+def action_discrimination(model, ctx, act_emb, tgt1, H):
+    """Rank of the true action among in-batch candidates by one-step prediction error. Returns (hits, ranks)."""
+    C = min(N_CAND, len(ctx))
+    errs = []
+    for j in range(C):  # j = 0 is the true action
+        a = act_emb[:, :H].clone()
+        a[:, H - 1] = act_emb.roll(j, 0)[:, H - 1]
+        errs.append((model.predict(ctx, a)[:, -1].float() - tgt1).pow(2).mean(-1))
+    rank = (torch.stack(errs, 1) < errs[0][:, None]).sum(1)  # number of candidates beating the truth
+    return (rank == 0).sum().item(), rank.float().sum().item()
 
 
 @torch.no_grad()
@@ -102,6 +120,7 @@ def main():
     sums = {n: {m: torch.zeros(K) for m in ("mse", "l1", "cos")} for n in names}
     tgt_sq, tgt_sum, n_seen = 0.0, 0.0, 0  # per-(k, dim) sums for the target variance
     all_emb, probe_x, sig_vals = [], [], []
+    disc_hits, disc_rank_sum = 0, 0.0
 
     for batch in loader:
         pixels = batch["pixels"].cuda()
@@ -118,6 +137,9 @@ def main():
                 "shuffled_action": rollout(model, ctx, shuf_emb, H, K).float(),
                 "copylast": emb[:, H - 1: H].expand_as(tgt),
             }
+            hits, rank_sum = action_discrimination(model, ctx, act_emb, tgt[:, 0], H)
+        disc_hits += hits
+        disc_rank_sum += rank_sum
         for n, p in preds.items():
             sums[n]["mse"] += (p - tgt).pow(2).mean(-1).sum(0).cpu()
             sums[n]["l1"] += (p - tgt).abs().mean(-1).sum(0).cpu()
@@ -156,12 +178,16 @@ def main():
             "sigreg_mean": float(np.mean(sig_vals)),
         },
         "probe_r2_dx_dy_dtheta": ridge_r2(torch.cat(probe_x).double(), y),
+        "action_discrimination": {"n_candidates": N_CAND, "chance": 1 / N_CAND,
+                                  "top1_acc": disc_hits / n_seen, "mean_rank": disc_rank_sum / n_seen},
+        "inv_weight": float(OmegaConf.select(cfg, "loss.inv.weight", default=0.0)),
     }
     for n in names:  # MSE normalised by the target variance (1.0 = predicting the mean embedding)
         result["rollout"][n]["nmse"] = (sums[n]["mse"] / n_seen / var).tolist()
     out = run / f"eval_{args.split}.json"
     json.dump(result, open(out, "w"), indent=2)
-    print(json.dumps({k: result[k] for k in ("n_clips", "metres_at_k", "collapse", "probe_r2_dx_dy_dtheta")}, indent=1))
+    print(json.dumps({k: result[k] for k in ("n_clips", "metres_at_k", "collapse", "probe_r2_dx_dy_dtheta",
+                                                         "action_discrimination")}, indent=1))
     for n in names:
         print(f"{n:16s} mse@k:", " ".join(f"{v:.4f}" for v in result["rollout"][n]["mse"]))
     print("saved", out)

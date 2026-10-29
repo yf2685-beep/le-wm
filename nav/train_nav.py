@@ -4,6 +4,8 @@ Same objective as train.py (prediction loss + lambda * SIGReg) with nav-specific
   * scene-level train/val files instead of random_split (no leakage across windows of one trajectory)
   * selectable action representation / stride (nav.action_rep, nav.frameskip)
   * prediction loss "mse" (LeWM default) or "l1"
+  * optional inverse-dynamics auxiliary loss (loss.inv.weight > 0): an MLP g(z_t, z_{t+1}) predicts the
+    (normalised) block action a_t for every adjacent pair in the clip, forcing the latent to encode ego-motion
   * crash-safe: Lightning last.ckpt every `ckpt_every_n_steps` + auto-resume, per-epoch weights,
     CSV metrics written to the run directory (WandB optional)
 
@@ -51,6 +53,15 @@ def nav_forward(self, batch, stage, cfg):
     output["sigreg_loss"] = self.sigreg(emb.transpose(0, 1))
     output["loss"] = output["pred_loss"] + cfg.loss.sigreg.weight * output["sigreg_loss"]
 
+    if cfg.loss.inv.weight > 0:  # inverse dynamics on all adjacent pairs; a_t = displacement obs t -> t+1
+        pairs = torch.cat([emb[:, :-1], emb[:, 1:]], dim=-1)
+        a_hat, a = self.inv_head(pairs).float(), batch["action"][:, :-1].float()
+        if cfg.nav.action_rep == "disc":
+            output["inv_loss"] = torch.nn.functional.cross_entropy(a_hat.flatten(0, 1), a.argmax(-1).flatten())
+        else:
+            output["inv_loss"] = (a_hat - a).pow(2).mean()
+        output["loss"] = output["loss"] + cfg.loss.inv.weight * output["inv_loss"]
+
     with torch.no_grad():  # monitoring only
         output["mse_metric"] = diff.pow(2).mean()
         output["copylast_mse_metric"] = (emb[:, ctx_len - 1] - emb[:, ctx_len]).pow(2).mean()
@@ -72,6 +83,8 @@ class SaveWeights(Callback):
         if trainer.is_global_zero:
             self.out_dir.mkdir(parents=True, exist_ok=True)
             torch.save(pl_module.model.state_dict(), self.out_dir / f"weights_epoch_{trainer.current_epoch + 1}.pt")
+            if hasattr(pl_module, "inv_head"):
+                torch.save(pl_module.inv_head.state_dict(), self.out_dir / f"inv_head_epoch_{trainer.current_epoch + 1}.pt")
 
 
 def build_datasets(cfg):
@@ -115,11 +128,18 @@ def run(cfg):
     train = torch.utils.data.DataLoader(train_set, **cfg.loader, shuffle=True, drop_last=True, generator=gen)
     val = torch.utils.data.DataLoader(val_set, **cfg.loader, shuffle=False, drop_last=False)
 
+    extra = {}
+    if cfg.loss.inv.weight > 0:
+        d, h = cfg.embed_dim, cfg.loss.inv.hidden
+        extra["inv_head"] = torch.nn.Sequential(
+            torch.nn.Linear(2 * d, h), torch.nn.GELU(), torch.nn.Linear(h, h), torch.nn.GELU(),
+            torch.nn.Linear(h, train_set.action_input_dim))
     module = spt.Module(
         model=hydra.utils.instantiate(cfg.model),
         sigreg=SIGReg(**cfg.loss.sigreg.kwargs),
+        **extra,
         forward=partial(nav_forward, cfg=cfg),
-        optim={"model_opt": {"modules": "model", "optimizer": dict(cfg.optimizer),
+        optim={"model_opt": {"modules": "model|inv_head", "optimizer": dict(cfg.optimizer),
                              "scheduler": {"type": "LinearWarmupCosineAnnealingLR"}, "interval": "epoch"}},
     )
 

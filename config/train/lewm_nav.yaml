@@ -55,6 +55,9 @@ optimizer:
 
 loss:
   pred: mse                # mse (LeWM default) | l1
+  inv:                     # inverse-dynamics auxiliary loss g(z_t, z_{t+1}) -> a_t (0 = off, LeWM default)
+    weight: 0.0
+    hidden: 512
   sigreg:
     weight: 0.09
     kwargs:
