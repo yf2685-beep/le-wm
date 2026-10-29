@@ -10,13 +10,14 @@
 #SBATCH --output=/scratch/yf2685/lewm-nav/logs/%x-%A_%a.out
 # Stage 4: one line of nav/slurm/stage4_sweep.txt per array task: train (resumes from last.ckpt), then eval on val.
 # Submit from the repo root:  sbatch nav/slurm/stage4.sbatch      (subset: sbatch --array=1,5 ...)
+# Other sweep file:  sbatch --array=1-6 --export=ALL,SWEEP=nav/slurm/stage4_l1_sweep.txt nav/slurm/stage4.sbatch
 
 set -u
 source /scratch/yf2685/lewm-nav/venv/bin/activate
 cd "${SLURM_SUBMIT_DIR}"
 export NAVDP_H5_DIR=/scratch/yf2685/lewm-nav/h5 LEWM_RUN_ROOT=/scratch/yf2685/lewm-nav/runs HDF5_USE_FILE_LOCKING=FALSE
 
-ARGS=$(sed -n "${SLURM_ARRAY_TASK_ID}p" nav/slurm/stage4_sweep.txt)
+ARGS=$(sed -n "${SLURM_ARRAY_TASK_ID}p" "${SWEEP:-nav/slurm/stage4_sweep.txt}")
 RUN=$(echo "$ARGS" | sed -E 's/.*run_name=([^ ]+).*/\1/')
 echo "task ${SLURM_ARRAY_TASK_ID} on $(hostname): $ARGS"
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader

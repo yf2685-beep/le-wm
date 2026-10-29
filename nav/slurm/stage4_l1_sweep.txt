@@ -1,0 +1,6 @@
+run_name=s4l1_xyt_fs4_h3_seed3072 nav.action_rep=xyt nav.frameskip=4 seed=3072 loss.pred=l1
+run_name=s4l1_xyt_fs4_h3_seed1 nav.action_rep=xyt nav.frameskip=4 seed=1 loss.pred=l1
+run_name=s4l1_xyt_fs4_h3_seed2 nav.action_rep=xyt nav.frameskip=4 seed=2 loss.pred=l1
+run_name=s4l1_xyt_fs8_h3_seed3072 nav.action_rep=xyt nav.frameskip=8 seed=3072 loss.pred=l1
+run_name=s4l1_xyt_fs8_h3_seed1 nav.action_rep=xyt nav.frameskip=8 seed=1 loss.pred=l1
+run_name=s4l1_xyt_fs8_h3_seed2 nav.action_rep=xyt nav.frameskip=8 seed=2 loss.pred=l1

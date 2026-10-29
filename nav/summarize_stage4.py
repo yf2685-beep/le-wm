@@ -1,6 +1,6 @@
 """Stage 4 summary: aggregate eval_val.json of all stage-4 runs into tables and rollout plots.
 
-Groups runs by (action_rep, frameskip, history_size) and reports mean +- std over seeds of:
+Groups runs by (action_rep, frameskip, history_size); L1-loss runs (s4l1_*) appear as "<rep>+l1" and reports mean +- std over seeds of:
   * model MSE at k=1 and at matched distances (~0.3 m, ~0.6 m, ~1.2 m), with copy-last / zero / shuffled baselines
   * action reliance: (zero-action MSE - model MSE) / model MSE at k=1   (> 0 means actions help)
   * collapse: effective rank, min per-dim std
@@ -22,7 +22,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 
-NAME = re.compile(r"^s4(?:diag)?_(?P<rep>[a-z]+)_fs(?P<fs>\d+)_h(?P<h>\d+)_seed(?P<seed>\d+)$")
+NAME = re.compile(r"^s4(?P<tag>diag|l1)?_(?P<rep>[a-z]+)_fs(?P<fs>\d+)_h(?P<h>\d+)_seed(?P<seed>\d+)$")
 TARGET_M = (0.3, 0.6, 1.2)
 
 
@@ -38,7 +38,8 @@ def load(runs):
         g = NAME.match(name)
         path = os.path.join(runs, name, "eval_val.json")
         if g and os.path.isfile(path):
-            groups[(g["rep"], int(g["fs"]), int(g["h"]))].append((int(g["seed"]), json.load(open(path))))
+            rep = g["rep"] + ("+l1" if g["tag"] == "l1" else "")  # s4l1_*: trained with L1 prediction loss
+            groups[(rep, int(g["fs"]), int(g["h"]))].append((int(g["seed"]), json.load(open(path))))
     return groups
 
 
