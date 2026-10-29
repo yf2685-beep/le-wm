@@ -1,6 +1,7 @@
 """Stage 4 summary: aggregate eval_val.json of all stage-4 runs into tables and rollout plots.
 
-Groups runs by (action_rep, frameskip, history_size); L1-loss runs (s4l1_*) appear as "<rep>+l1" and reports mean +- std over seeds of:
+Groups runs by (action_rep, frameskip, history_size); L1-loss runs (s4l1_*) appear as "<rep>+l1" and
+inverse-dynamics runs (s5inv_*_w<w>_*) as "<rep>+inv<w>" and reports mean +- std over seeds of:
   * model MSE at k=1 and at matched distances (~0.3 m, ~0.6 m, ~1.2 m), with copy-last / zero / shuffled baselines
   * action reliance: (zero-action MSE - model MSE) / model MSE at k=1   (> 0 means actions help)
   * collapse: effective rank, min per-dim std
@@ -22,7 +23,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 
-NAME = re.compile(r"^s4(?P<tag>diag|l1)?_(?P<rep>[a-z]+)_fs(?P<fs>\d+)_h(?P<h>\d+)_seed(?P<seed>\d+)$")
+NAME = re.compile(r"^s(?:4(?P<tag>diag|l1)?|5(?P<s5>inv))_(?P<rep>[a-z]+)_fs(?P<fs>\d+)_h(?P<h>\d+)"
+                  r"(?:_w(?P<w>[\d.]+))?_seed(?P<seed>\d+)$")
 TARGET_M = (0.3, 0.6, 1.2)
 
 
@@ -39,6 +41,8 @@ def load(runs):
         path = os.path.join(runs, name, "eval_val.json")
         if g and os.path.isfile(path):
             rep = g["rep"] + ("+l1" if g["tag"] == "l1" else "")  # s4l1_*: trained with L1 prediction loss
+            if g["s5"]:  # s5inv_*: inverse-dynamics auxiliary loss with weight w
+                rep += f"+inv{g['w']}"
             groups[(rep, int(g["fs"]), int(g["h"]))].append((int(g["seed"]), json.load(open(path))))
     return groups
 
@@ -59,7 +63,7 @@ def main():
     rows, summary = [], {}
     header = ["rep", "fs", "H", "n_seeds", "mse@k1", "copylast@k1", "zero_act@k1", "action_gain@k1"]
     header += [f"mse@{m}m" for m in TARGET_M] + [f"copylast@{m}m" for m in TARGET_M]
-    header += ["eff_rank", "min_std", "probe_dx", "probe_dy", "probe_dth"]
+    header += ["eff_rank", "min_std", "probe_dx", "probe_dy", "probe_dth", "act_disc_top1"]
     for (rep, fs, h), runs in sorted(groups.items(), key=lambda kv: (kv[0][2], kv[0][1], kv[0][0])):
         R = [r for _, r in runs]
         mod = [r["rollout"]["model"]["mse"] for r in R]
@@ -71,6 +75,7 @@ def main():
         row += [ms([at_metres(r, c, t)[0] for r, c in zip(R, cl)]) for t in TARGET_M]
         row += [ms([r["collapse"]["effective_rank"] for r in R]), ms([r["collapse"]["emb_std_min"] for r in R])]
         row += [ms([r["probe_r2_dx_dy_dtheta"][i] for r in R]) for i in range(3)]
+        row += [ms([r.get("action_discrimination", {}).get("top1_acc", np.nan) for r in R])]
         rows.append(row)
         summary[f"{rep}_fs{fs}_h{h}"] = {
             "seeds": [s for s, _ in runs],
