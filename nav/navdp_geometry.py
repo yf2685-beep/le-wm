@@ -60,10 +60,17 @@ def compose(actions):
 
 # ---- action representations (applied at load time to [dx, dy, dtheta]) ----
 
-ACTION_DIMS = {"xy": 2, "xyt": 3, "xysc": 4, "disc": 4}
+ACTION_DIMS = {"xy": 2, "xyt": 3, "xysc": 4, "disc": 4}  # dbin: sum(len(e) + 1 for e in bin_edges)
 
 
-def to_representation(xyt, rep, tau_rad=None, eps_m=None):
+def quantile_bin_edges(xyt, bins):
+    """Inner bin edges per dimension of [dx, dy, dtheta] at equal-mass quantiles of (N, 3) data (NaN rows ignored)."""
+    x = np.asarray(xyt, dtype=np.float64)
+    x = x[~np.isnan(x).any(axis=-1)]
+    return [np.quantile(x[:, d], np.arange(1, b) / b).astype(np.float32) for d, b in enumerate(bins)]
+
+
+def to_representation(xyt, rep, tau_rad=None, eps_m=None, bin_edges=None):
     """Convert (N, 3) [dx, dy, dtheta] to the requested representation; NaN rows stay NaN.
 
     xy:   [dx, dy]
@@ -71,6 +78,8 @@ def to_representation(xyt, rep, tau_rad=None, eps_m=None):
     xysc: [dx, dy, sin dtheta, cos dtheta]
     disc: one-hot over [stop, forward, left, right] using |dtheta| >= tau for turns and
           planar distance < eps for stop.
+    dbin: magnitude-preserving discretisation: each of dx, dy, dtheta is binned with `bin_edges`
+          (see quantile_bin_edges) and the per-dimension one-hots are concatenated (no stop class).
     """
     xyt = np.asarray(xyt, dtype=np.float32)
     if rep == "xy":
@@ -87,4 +96,11 @@ def to_representation(xyt, rep, tau_rad=None, eps_m=None):
         onehot = np.eye(4, dtype=np.float32)[cls]
         onehot[np.isnan(xyt).any(axis=-1)] = np.nan
         return onehot
+    if rep == "dbin":
+        assert bin_edges is not None, "dbin needs bin_edges"
+        parts = [np.eye(len(e) + 1, dtype=np.float32)[np.digitize(np.nan_to_num(xyt[..., d]), e)]
+                 for d, e in enumerate(bin_edges)]
+        out = np.concatenate(parts, axis=-1)
+        out[np.isnan(xyt).any(axis=-1)] = np.nan
+        return out
     raise ValueError(f"unknown action representation {rep!r}")

@@ -3,7 +3,7 @@
 The world-model step is `frameskip` raw frames (~3.2 cm each). Observations are taken every
 `frameskip` rows, as in stable_worldmodel. The `action` attached to observation k is:
 
-  rep in {xy, xyt, xysc, disc}: the block displacement from obs k to obs k+1 (column act_s{frameskip}),
+  rep in {xy, xyt, xysc, disc, dbin}: the block displacement from obs k to obs k+1 (column act_s{frameskip}),
                                 converted to that representation -> (num_steps, A)
   rep == "concat":              the frameskip per-frame displacements inside the block, each in its own
                                 local frame (column act_f), concatenated -> (num_steps, frameskip * 3).
@@ -14,12 +14,14 @@ import numpy as np
 import torch
 from stable_worldmodel.data.formats.hdf5 import HDF5Dataset
 
-from navdp_geometry import ACTION_DIMS, to_representation
+from navdp_geometry import ACTION_DIMS, quantile_bin_edges, to_representation
 
 
 class NavDPDataset(HDF5Dataset):
     def __init__(self, path, frameskip, num_steps, action_rep="xyt", disc_tau_deg=None, disc_eps_m=None,
-                 extra_keys=(), transform=None):
+                 dbin_bins=(3, 5, 7), bin_edges=None, extra_keys=(), transform=None):
+        """dbin: `bin_edges` = inner edges per [dx, dy, dtheta]; if None they are fitted (equal-mass quantiles,
+        `dbin_bins` bins per dimension) on this file -- fit on train and pass train.bin_edges to val/test."""
         self.action_rep = action_rep
         self.tau = None if disc_tau_deg is None else np.deg2rad(disc_tau_deg)
         self.eps = disc_eps_m
@@ -28,7 +30,12 @@ class NavDPDataset(HDF5Dataset):
             path=path, frameskip=frameskip, num_steps=num_steps, transform=transform,
             keys_to_load=["pixels", self.src_col, *extra_keys], keys_to_cache=[self.src_col],
         )
-        self.action_input_dim = 3 * frameskip if action_rep == "concat" else ACTION_DIMS[action_rep]
+        self.bin_edges = None
+        if action_rep == "dbin":
+            self.bin_edges = bin_edges if bin_edges is not None else quantile_bin_edges(self._cache[self.src_col], dbin_bins)
+            self.action_input_dim = sum(len(e) + 1 for e in self.bin_edges)
+        else:
+            self.action_input_dim = 3 * frameskip if action_rep == "concat" else ACTION_DIMS[action_rep]
 
     @property
     def column_names(self):
@@ -37,7 +44,7 @@ class NavDPDataset(HDF5Dataset):
     def _convert(self, a):
         if self.action_rep == "concat":
             return np.asarray(a, dtype=np.float32)
-        return to_representation(a, self.action_rep, self.tau, self.eps)
+        return to_representation(a, self.action_rep, self.tau, self.eps, self.bin_edges)
 
     def _load_slice(self, ep_idx, start, end):
         self._open()

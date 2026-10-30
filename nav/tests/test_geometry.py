@@ -10,6 +10,7 @@ from navdp_geometry import (  # noqa: E402
     base_poses,
     compose,
     local_displacement,
+    quantile_bin_edges,
     to_representation,
     world_xyyaw,
 )
@@ -92,3 +93,19 @@ def test_representations():
     d = to_representation(x, "disc", tau_rad=0.2, eps_m=0.01)
     np.testing.assert_array_equal(d[:4].argmax(-1), [1, 2, 3, 0])  # forward, left, right, stop
     assert np.isnan(d[4]).all()
+
+
+def test_dbin_quantile_bins():
+    rng = np.random.default_rng(0)
+    a = np.stack([rng.normal(0.3, 0.04, 5000), rng.normal(0, 0.02, 5000), rng.normal(0, 0.15, 5000)], 1)
+    a[0] = np.nan
+    edges = quantile_bin_edges(a, (3, 5, 7))
+    assert [len(e) for e in edges] == [2, 4, 6]
+    r = to_representation(a, "dbin", bin_edges=edges)
+    assert r.shape == (5000, 15) and np.isnan(r[0]).all()
+    ok = r[1:]
+    assert np.allclose(ok[:, :3].sum(1), 1) and np.allclose(ok[:, 3:8].sum(1), 1) and np.allclose(ok[:, 8:].sum(1), 1)
+    # equal-mass bins on the data they were fitted on; larger left turn -> higher dtheta bin
+    assert np.allclose(ok[:, 8:].mean(0), 1 / 7, atol=0.01)
+    lo, hi = to_representation(np.array([[0.3, 0, -0.5], [0.3, 0, 0.5]]), "dbin", bin_edges=edges)
+    assert lo[8:].argmax() == 0 and hi[8:].argmax() == 6

@@ -7,7 +7,9 @@ and once per run:
   * collapse checks on encoder embeddings: per-dim std, effective rank, SIGReg statistic
   * a linear (ridge) probe predicting the true block action [dx, dy, dtheta] from (z_t, z_{t+1})
   * action discrimination (k=1): the last context action is swapped for those of N_CAND-1 other clips in
-    the batch; accuracy = how often the true action gives the lowest prediction error (chance = 1/N_CAND)
+    the batch; accuracy = how often the true action gives a lower prediction error than every candidate whose
+    action differs from it (candidates identical to the true action, common for one-hot reps, are ignored;
+    clips with no differing candidate are skipped). Chance ~ 1/N_CAND.
 
 Rollout: the context holds the last `history_size` (predicted or true) embeddings; step k uses actions
 a_{t-H+k .. t+k-1}, exactly as JEPA.rollout. Physical distance per step is reported so strides can be
@@ -60,16 +62,21 @@ N_CAND = 16
 
 
 @torch.no_grad()
-def action_discrimination(model, ctx, act_emb, tgt1, H):
-    """Rank of the true action among in-batch candidates by one-step prediction error. Returns (hits, ranks)."""
+def action_discrimination(model, ctx, act_emb, action, tgt1, H):
+    """Rank of the true action among in-batch candidates by one-step prediction error.
+
+    Only candidates whose (input) action differs from the true one count. Returns (hits, rank_sum, n_valid)."""
     C = min(N_CAND, len(ctx))
-    errs = []
+    errs, differs = [], []
     for j in range(C):  # j = 0 is the true action
         a = act_emb[:, :H].clone()
         a[:, H - 1] = act_emb.roll(j, 0)[:, H - 1]
         errs.append((model.predict(ctx, a)[:, -1].float() - tgt1).pow(2).mean(-1))
-    rank = (torch.stack(errs, 1) < errs[0][:, None]).sum(1)  # number of candidates beating the truth
-    return (rank == 0).sum().item(), rank.float().sum().item()
+        differs.append((action.roll(j, 0)[:, H - 1] != action[:, H - 1]).any(-1))
+    errs, differs = torch.stack(errs, 1), torch.stack(differs, 1)
+    rank = ((errs < errs[:, :1]) & differs).sum(1)  # number of differing candidates beating the truth
+    valid = differs.any(1)
+    return (rank[valid] == 0).sum().item(), rank[valid].float().sum().item(), valid.sum().item()
 
 
 @torch.no_grad()
@@ -120,7 +127,7 @@ def main():
     sums = {n: {m: torch.zeros(K) for m in ("mse", "l1", "cos")} for n in names}
     tgt_sq, tgt_sum, n_seen = 0.0, 0.0, 0  # per-(k, dim) sums for the target variance
     all_emb, probe_x, sig_vals = [], [], []
-    disc_hits, disc_rank_sum = 0, 0.0
+    disc_hits, disc_rank_sum, disc_n = 0, 0.0, 0
 
     for batch in loader:
         pixels = batch["pixels"].cuda()
@@ -137,9 +144,10 @@ def main():
                 "shuffled_action": rollout(model, ctx, shuf_emb, H, K).float(),
                 "copylast": emb[:, H - 1: H].expand_as(tgt),
             }
-            hits, rank_sum = action_discrimination(model, ctx, act_emb, tgt[:, 0], H)
+            hits, rank_sum, n_valid = action_discrimination(model, ctx, act_emb, action, tgt[:, 0], H)
         disc_hits += hits
         disc_rank_sum += rank_sum
+        disc_n += n_valid
         for n, p in preds.items():
             sums[n]["mse"] += (p - tgt).pow(2).mean(-1).sum(0).cpu()
             sums[n]["l1"] += (p - tgt).abs().mean(-1).sum(0).cpu()
@@ -179,7 +187,8 @@ def main():
         },
         "probe_r2_dx_dy_dtheta": ridge_r2(torch.cat(probe_x).double(), y),
         "action_discrimination": {"n_candidates": N_CAND, "chance": 1 / N_CAND,
-                                  "top1_acc": disc_hits / n_seen, "mean_rank": disc_rank_sum / n_seen},
+                                  "top1_acc": disc_hits / max(disc_n, 1), "mean_rank": disc_rank_sum / max(disc_n, 1),
+                                  "n_valid": disc_n, "tie_aware": True},
         "inv_weight": float(OmegaConf.select(cfg, "loss.inv.weight", default=0.0)),
     }
     for n in names:  # MSE normalised by the target variance (1.0 = predicting the mean embedding)

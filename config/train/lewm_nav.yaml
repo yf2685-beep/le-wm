@@ -8,11 +8,12 @@ nav:
   h5_dir: ${oc.env:NAVDP_H5_DIR}
   train_file: train.h5
   val_file: val.h5
-  action_rep: xyt          # xy | xyt | xysc | disc | concat
+  action_rep: xyt          # xy | xyt | xysc | disc | dbin | concat
   frameskip: 4             # world-model step in raw frames (~3.2 cm each): 4 ~ 13 cm, 8 ~ 26 cm
   # disc: |dtheta| >= tau -> turn. 1.25 deg/frame ~ 75th pct of |dtheta| on train (5 deg @ fs4, 10 deg @ fs8),
   # giving ~75% forward / ~12% left / ~12% right.
   disc_tau_deg: ${eval:'1.25 * ${nav.frameskip}'}
+  dbin_bins: [3, 5, 7]     # dbin: equal-mass bins (fitted on train) for dx, dy, dtheta -> 15-dim multi-one-hot
   disc_eps_m: 0.02         # disc: planar step < eps -> stop (never happens in NavDP: min step ~0.1 m @ fs4)
   clip_stride: 1           # keep clips whose start frame % clip_stride == 0 (1 = all; frameskip = ~4x faster epochs)
   max_train_episodes: null # debug / overfit subsets

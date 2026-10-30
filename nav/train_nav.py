@@ -56,8 +56,11 @@ def nav_forward(self, batch, stage, cfg):
     if cfg.loss.inv.weight > 0:  # inverse dynamics on all adjacent pairs; a_t = displacement obs t -> t+1
         pairs = torch.cat([emb[:, :-1], emb[:, 1:]], dim=-1)
         a_hat, a = self.inv_head(pairs).float(), batch["action"][:, :-1].float()
-        if cfg.nav.action_rep == "disc":
-            output["inv_loss"] = torch.nn.functional.cross_entropy(a_hat.flatten(0, 1), a.argmax(-1).flatten())
+        if cfg.nav.action_rep in ("disc", "dbin"):  # cross-entropy per one-hot group (dbin: dx, dy, dtheta bins)
+            sizes = [a.size(-1)] if cfg.nav.action_rep == "disc" else [b for b in cfg.nav.dbin_bins]
+            output["inv_loss"] = sum(
+                torch.nn.functional.cross_entropy(h.flatten(0, 1), t.argmax(-1).flatten())
+                for h, t in zip(a_hat.split(sizes, -1), a.split(sizes, -1))) / len(sizes)
         else:
             output["inv_loss"] = (a_hat - a).pow(2).mean()
         output["loss"] = output["loss"] + cfg.loss.inv.weight * output["inv_loss"]
@@ -91,8 +94,10 @@ def build_datasets(cfg):
     n = cfg.nav
     kw = dict(frameskip=n.frameskip, num_steps=cfg.history_size + cfg.num_preds, action_rep=n.action_rep,
               disc_tau_deg=n.disc_tau_deg, disc_eps_m=n.disc_eps_m)
+    if n.action_rep == "dbin":
+        kw["dbin_bins"] = tuple(n.dbin_bins)
     train = NavDPDataset(os.path.join(n.h5_dir, n.train_file), **kw)
-    val = NavDPDataset(os.path.join(n.h5_dir, n.val_file), **kw)
+    val = NavDPDataset(os.path.join(n.h5_dir, n.val_file), **kw, bin_edges=train.bin_edges)  # train-fitted bins
     for ds, k in ((train, n.max_train_episodes), (val, n.max_val_episodes)):
         if k is not None:
             ds.clip_indices = [c for c in ds.clip_indices if c[0] < k]
@@ -100,7 +105,7 @@ def build_datasets(cfg):
             ds.clip_indices = [c for c in ds.clip_indices if c[1] % n.clip_stride == 0]
 
     transforms = [get_img_preprocessor(source="pixels", target="pixels", img_size=cfg.img_size)]
-    if n.action_rep != "disc":  # one-hot actions are left as-is (a never-seen class has zero std)
+    if n.action_rep not in ("disc", "dbin"):  # one-hot actions are left as-is (a never-seen class has zero std)
         a = torch.from_numpy(np.asarray(train.get_col_data("action"), dtype=np.float32))
         a = a[~torch.isnan(a).any(1)]
         mean, std = a.mean(0, keepdim=True), a.std(0, keepdim=True).clamp_min(1e-6)
