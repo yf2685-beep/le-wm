@@ -1,0 +1,6 @@
+run_name=s5inv_dbin_fs8_h3_w1_seed3072 nav.action_rep=dbin nav.frameskip=8 seed=3072 loss.inv.weight=1.0
+run_name=s5inv_dbin_fs8_h3_w1_seed1 nav.action_rep=dbin nav.frameskip=8 seed=1 loss.inv.weight=1.0
+run_name=s5inv_dbin_fs8_h3_w1_seed2 nav.action_rep=dbin nav.frameskip=8 seed=2 loss.inv.weight=1.0
+run_name=s5inv_concat_fs8_h3_w1_seed3072 nav.action_rep=concat nav.frameskip=8 seed=3072 loss.inv.weight=1.0
+run_name=s5inv_concat_fs8_h3_w1_seed1 nav.action_rep=concat nav.frameskip=8 seed=1 loss.inv.weight=1.0
+run_name=s5inv_concat_fs8_h3_w1_seed2 nav.action_rep=concat nav.frameskip=8 seed=2 loss.inv.weight=1.0

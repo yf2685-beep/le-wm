@@ -1,0 +1,32 @@
+{
+  "s4_xysc_fs8_h3_seed3072": {
+    "tau": 0.08363420486450195,
+    "self_success_calib": 0.2,
+    "n": 30
+  },
+  "s4_xysc_fs8_h3_seed1": {
+    "tau": 0.07306260883808136,
+    "self_success_calib": 0.3333333333333333,
+    "n": 30
+  },
+  "s4_xysc_fs8_h3_seed2": {
+    "tau": 0.07054669821262359,
+    "self_success_calib": 0.2,
+    "n": 30
+  },
+  "s5inv_xysc_fs8_h3_w1_seed3072": {
+    "tau": 0.07248896455764774,
+    "self_success_calib": 0.26666666666666666,
+    "n": 30
+  },
+  "s5inv_xysc_fs8_h3_w1_seed1": {
+    "tau": 0.08806412243843079,
+    "self_success_calib": 0.2,
+    "n": 30
+  },
+  "s5inv_xysc_fs8_h3_w1_seed2": {
+    "tau": 0.16981439292430878,
+    "self_success_calib": 0.26666666666666666,
+    "n": 30
+  }
+}

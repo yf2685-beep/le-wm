@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>LeWM 视觉导航阶段报告（2026-11-13）</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+  :root { --ink: #1d1d1f; --muted: #5f6368; --line: #d9dce1; --accent: #2f5d9e; --soft: #f3f6fb; --ok: #2e7d32; --warn: #b26a00; --no: #b3261e; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { font-family: "PingFang SC", "Hiragino Sans GB", "Helvetica Neue", Arial, sans-serif; color: var(--ink); background: #fff; font-size: 10.5pt; line-height: 1.6; margin: 0; }
+  h1 { font-size: 20pt; margin: 0 0 4px; letter-spacing: .5px; }
+  h2 { font-size: 14pt; color: var(--accent); border-bottom: 1.5px solid var(--accent); padding-bottom: 3px; margin: 22px 0 10px; break-after: avoid; }
+  h3 { font-size: 11.5pt; margin: 16px 0 6px; break-after: avoid; }
+  p { margin: 5px 0 8px; text-align: justify; }
+  ul, ol { margin: 4px 0 8px; padding-left: 22px; }
+  li { margin: 2px 0; }
+  .meta { color: var(--muted); font-size: 9.5pt; margin-bottom: 14px; }
+  .abstract { background: var(--soft); border-left: 4px solid var(--accent); padding: 10px 14px; margin: 12px 0 6px; }
+  .abstract b { color: var(--accent); }
+  table { border-collapse: collapse; width: 100%; margin: 8px 0 10px; font-size: 9pt; }
+  tr { break-inside: avoid; }
+  th, td { border: 1px solid var(--line); padding: 4px 6px; text-align: center; vertical-align: middle; }
+  th { background: #eef1f6; font-weight: 600; }
+  td.l, th.l { text-align: left; }
+  tr.hl td { background: #fff7e0; }
+  .ok { color: var(--ok); font-weight: 600; } .warn { color: var(--warn); font-weight: 600; } .no { color: var(--no); font-weight: 600; }
+  figure { margin: 10px 0 12px; break-inside: avoid; text-align: center; }
+  figure img { max-width: 100%; }
+  figcaption { font-size: 9pt; color: var(--muted); margin-top: 3px; text-align: left; }
+  figcaption b { color: var(--ink); }
+  code { font-family: "SF Mono", Menlo, monospace; font-size: 8.8pt; background: #f2f2f4; padding: 0 3px; border-radius: 3px; }
+  .flow { display: flex; align-items: stretch; gap: 6px; margin: 10px 0; font-size: 8.8pt; break-inside: avoid; }
+  .flow .box { flex: 1; border: 1px solid var(--accent); border-radius: 6px; padding: 6px 7px; background: var(--soft); }
+  .flow .box b { display: block; color: var(--accent); margin-bottom: 2px; }
+  .flow .arr { align-self: center; color: var(--accent); font-size: 14pt; }
+  .note { font-size: 9pt; color: var(--muted); text-align: left; }
+  .pb { break-before: page; }
+  .eq { text-align: center; margin: 6px 0; font-family: "Times New Roman", serif; font-size: 11pt; }
+</style>
+</head>
+<body>
+
+<h1>将 LeWorldModel 迁移到视觉导航：阶段报告（⑥–⑦）</h1>
+<div class="meta">Yuxuan Feng（yf2685） · 指导老师：Li Guo · NYU Capstone · 2026 年 11 月 13 日<br>
+接续 2026-10-30 的报告（①–⑤）。本次内容：训练收敛与表示检查、模拟器渲染校准、候选动作排序、闭环 MPC 导航。<br>
+代码：<code>github.com/yf2685-beep/le-wm</code>（<code>nav</code> 分支，<code>nav/sim/</code>） · 团队仓库 <code>yf/sim-branch</code> 分支 · 模拟器：Habitat-sim 0.3.3 + Scene-N1（MP3D） · 算力：NYU Torch HPC</div>
+
+<div class="abstract">
+<b>摘要。</b>上次报告之后，按建议把重点从“继续比较动作表示”转到了“确认模型学得可靠，再检验它能否帮助选择导航动作”。主配置固定为 <b>continuous xysc + fs8 + H=3 + MSE + SIGReg</b>，对比加 B1（λ=1）和不加 B1，各 3 个 seed。
+<ol style="margin:4px 0 0">
+<li><b>训练在验证集上已经收敛，继续训练意义不大。</b>最后 3 个 epoch 里，val 上的各项指标变化都在 ±3% 以内，val 误差没有回升，所以不是典型的过拟合。但 train 还在继续下降，train/val 差距很大（B1 的反向动力学损失 0.15 vs 0.51）：问题是<b>对新场景的泛化</b>，不是训练轮数不够。</li>
+<li><b>没有坍塌，但“MSE 下降”要打折扣。</b>每维标准差最小 0.50–0.56，第一主成分只占 18%–20% 的方差。不过 B1 的“误差 / copy-last”从 0.87 降到 0.61，主要是因为 B1 把相邻帧的 latent 拉开、让 copy-last 变难了；按与尺度无关的归一化 MSE 看，B1 反而略高（0.097 vs 0.076）。另外，新场景上的 SIGReg 是训练场景的 4 倍，effective rank 只有一半。</li>
+<li><b>动作表示的问题已经有答案：连续表示 + B1 最好，xy ≈ xyt ≈ xysc；离散表示即使加 B1 也和随机一样。</b>离线排序和模拟器里的分支排序结论一致。比选哪种表示更重要的是加不加 B1。</li>
+<li><b>world model 能帮助选动作，但信号很弱。</b>在模拟器里从同一起点真实执行 125 条候选，B1 选中的候选只补上了“随机 → 最优”差距的 9%（不加 B1 为 −5%）。闭环 MPC 在 1–2 m 内成功率 58%（随机 28%、不加 B1 42%），4–8 m 只有 12%。</li>
+<li><b>主要瓶颈是代价函数，其次是预测器。</b>即使用真实执行后的画面打分（相当于完美预测器），“latent 距离”也只能补上约 40% 的差距，因为“画面像目标”不等于“离目标近”。</li>
+</ol>
+</div>
+
+<h2>1. 上次报告证明了什么、还缺什么：现在的状态</h2>
+<p>下表沿用上次反馈里的格式，最后一列是本阶段之后的状态。上次反馈指出：<b>有客观的离线指标，但这些指标不能单独证明模型具有导航价值。</b>本阶段补上了“收敛”和“导航”两行。</p>
+<table>
+<tr><th class="l" style="width:17%">问题</th><th class="l" style="width:30%">10-30 报告中的证据</th><th class="l">现在的证据（本报告）</th><th style="width:11%">结论</th></tr>
+<tr><td class="l">能否预测未来 latent</td><td class="l">B1 + xysc 单步 MSE / copy-last = 0.614</td><td class="l">比值在 val 上已收敛；但归一化 MSE 显示 B1 的改善主要来自分母（第 2 节）。k=8 时归一化 MSE ≈ 0.9，多步预测信息量很少</td><td class="warn">单步可以，多步弱</td></tr>
+<tr><td class="l">是否使用动作</td><td class="l">打乱动作后误差 +101%</td><td class="l">在模拟器里真实执行不同动作，B1 的打分与执行结果相关（ρ = 0.17），不加 B1 为 0.01（第 5 节）</td><td class="ok">是（仅 B1）</td></tr>
+<tr><td class="l">是否坍塌</td><td class="l">effective rank 21.9 / 192，最小每维 std 0.56</td><td class="l">逐 epoch 跟踪：std、方差占比稳定，没有越来越多的维度变成常数；但新场景上 SIGReg 和 effective rank 明显差于训练场景（第 3 节）</td><td class="ok">没有坍塌</td></tr>
+<tr><td class="l">训练是否收敛</td><td class="l">只有第 10 个 epoch 的结果</td><td class="l">10 个 epoch 的逐 epoch 曲线，3 个 seed；val 指标最后 3 个 epoch 变化 ≤ 3%（第 2 节）</td><td class="ok">val 上已收敛</td></tr>
+<tr><td class="l">能否帮助选动作</td><td class="l">未验证</td><td class="l">离线候选排序 + 模拟器分支排序：B1 好于随机，但只补上 9% 的差距（第 5 节）</td><td class="warn">能，但很弱</td></tr>
+<tr><td class="l">能否帮助导航</td><td class="l">未验证</td><td class="l">闭环 MPC，7 个 val 场景 × 420 个 episode：近距离明显好于随机，远距离基本失败（第 6 节）</td><td class="warn">近距离可以</td></tr>
+</table>
+
+<h2>2. 第一阶段：MSE 是否收敛，下降是否 make sense</h2>
+<p><b>设置。</b>主配置固定为 xysc、fs8、H=3、MSE + SIGReg（λ<sub>SIGReg</sub>=0.09），加 B1（反向动力学损失权重 1）和不加 B1 各 3 个 seed，训练 10 个 epoch。每个 epoch 的 checkpoint 都在同一批固定的 val clip（7 个 val 场景）和 train clip 上重新评估，见图 1。表中是 3 个 seed 的均值。</p>
+<table>
+<tr><th class="l">指标</th><th>不加 B1<br>epoch 7 → 10（val）</th><th>不加 B1<br>train，epoch 10</th><th>B1<br>epoch 7 → 10（val）</th><th>B1<br>train，epoch 10</th></tr>
+<tr><td class="l">预测 MSE（训练日志）</td><td>0.060 → 0.058</td><td>0.038</td><td>0.083 → 0.081</td><td>0.059</td></tr>
+<tr><td class="l">copy-last MSE（训练日志）</td><td>0.064 → 0.062</td><td>0.051</td><td>0.129 → 0.129</td><td>0.131</td></tr>
+<tr class="hl"><td class="l">模型 / copy-last，k = 1</td><td>0.872 → 0.871</td><td>0.616</td><td>0.628 → 0.614</td><td>0.393</td></tr>
+<tr><td class="l">模型 / copy-last，k = 4</td><td>1.021 → 1.028</td><td>0.600</td><td>0.770 → 0.757</td><td>0.461</td></tr>
+<tr><td class="l">模型 / copy-last，k = 8</td><td>1.116 → 1.110</td><td>0.632</td><td>0.961 → 0.948</td><td>0.618</td></tr>
+<tr class="hl"><td class="l">归一化 MSE（MSE / Var z），k = 1</td><td>0.076 → 0.076</td><td>0.029</td><td>0.099 → 0.097</td><td>0.051</td></tr>
+<tr><td class="l">反向动力学损失（B1）</td><td></td><td></td><td>0.512 → 0.510</td><td>0.172 → 0.146</td></tr>
+</table>
+<p><b>收敛。</b>val 上所有比值和归一化 MSE 在最后 3 个 epoch 的相对变化都在 3% 以内，曲线已经变平；val 误差没有回升。train 上的误差还在下降（B1 的反向动力学损失 7 → 10 epoch 降了 15%）。所以：</p>
+<ul>
+<li><b>在 val 上已经收敛，延长训练不太可能再改善 val。</b></li>
+<li><b>不是典型的过拟合（val 没有变差），而是跨场景泛化差距大</b>：train 的 k=4 比值约 0.46–0.60，val 是 0.76–1.03。训练集只有 54 个场景，模型在训练场景上学到的东西有一部分是场景特有的。B1 的反向动力学头差距最明显（0.15 vs 0.51），并且还在扩大。</li>
+</ul>
+<p><b>下降是否 make sense。</b>encoder 也在训练，预测目标 z<sub>t+1</sub> 本身会变，所以要和 latent 的尺度一起看：</p>
+<ul>
+<li>不加 B1 时，预测 MSE 和 copy-last MSE 同步下降（0.088 → 0.058，0.082 → 0.062），一部分下降来自 latent 相邻帧变得更像，不是预测变好。</li>
+<li>B1 的 copy-last MSE 从 0.08 升到 0.13：反向动力学损失迫使相邻帧的 latent 拉开（这样才能从 z<sub>t</sub>, z<sub>t+1</sub> 读出动作）。<b>所以 B1 的“比值 0.61”主要来自分母变大。</b>按与尺度无关的归一化 MSE，B1 是 0.097，不加 B1 是 0.076，B1 并没有让预测本身更准。B1 的价值在于让预测<b>依赖动作</b>，这一点在后面的排序和闭环实验里得到确认。</li>
+<li>随 rollout 步数 k 的变化：k=8（约 2.4 m）时两个模型的归一化 MSE 都在 0.89–0.92，接近“直接预测均值”。这和 epoch 无关，是预测误差的累积。</li>
+</ul>
+<figure>
+<img src="fig/fig_stage6_epochs.png" style="width:100%">
+<figcaption><b>图 1：逐 epoch 曲线（3 个 seed 的均值 ± 标准差）。</b>蓝：不加 B1；橙：B1。实线：val；虚线：train（“归一化 MSE”“每维 std”“probe R²”三个面板里，不同线型表示不同的 k / 分位数 / 预测量，见面板标题）。</figcaption>
+</figure>
+
+<h2>3. 第二阶段：SIGReg 是否有效，表示学到了什么</h2>
+<p>在同一批固定样本上，每个 checkpoint 记录下面的统计量。SIGReg 用固定的随机投影计算，避免投影不同带来的波动。第 10 个 epoch，3 个 seed 的均值：</p>
+<table>
+<tr><th class="l">指标</th><th>不加 B1</th><th>B1</th><th class="l">解读</th></tr>
+<tr><td class="l">SIGReg，train / val</td><td>1.47 / 6.18</td><td>1.55 / 5.89</td><td class="l">训练场景上分布接近各向同性高斯；新场景上偏离大 4 倍</td></tr>
+<tr><td class="l">effective rank，train / val（共 192 维）</td><td>44.5 / 20.4</td><td>36.6 / 21.8</td><td class="l">新场景的 latent 只占用一半的有效方向</td></tr>
+<tr><td class="l">每维 std，min / p10 / median（val）</td><td>0.50 / 0.64 / 0.81</td><td>0.56 / 0.73 / 0.87</td><td class="l">没有维度接近常数，而且随 epoch 稳定</td></tr>
+<tr><td class="l">第一主成分的方差占比（val）</td><td>0.20</td><td>0.18</td><td class="l">信息没有集中到一个方向</td></tr>
+<tr><td class="l">线性 probe R²：dx / dy / dθ（val）</td><td>0.31 / 0.12 / 0.14</td><td>0.39 / 0.23 / 0.23</td><td class="l">B1 让 latent 里保留更多运动信息</td></tr>
+<tr><td class="l">latent 距离与真实平面距离的 Spearman ρ（同一轨迹内）</td><td>0.70</td><td>0.64</td><td class="l">latent 距离随真实距离单调增加，可以作为规划代价的起点</td></tr>
+</table>
+<ul>
+<li><b>没有坍塌。</b>每维 std 的最小值、10% 分位和中位数在整个训练过程中都很稳定，没有越来越多的维度变成常数。</li>
+<li><b>effective rank ≈ 20–22 不代表表示好或者差</b>：同一批模型在训练场景上是 37–44。较低的 val rank 和较高的 val SIGReg 同时出现，两个模型都一样，说明这是<b>跨场景泛化</b>的问题（encoder 对没见过的场景编码得更“挤”），不是 B1 造成的。</li>
+<li><b>SIGReg 在起作用，但只约束到了训练分布。</b>如果要提高新场景上的表示质量，更直接的办法是增加场景多样性或者数据增强，而不是再加一个分布层面的损失。</li>
+<li><b>暂时不加额外的 KL / 分布匹配损失。</b>SIGReg 已经在防坍塌，现在也没有坍塌；只匹配预测和目标的分布不保证逐样本对应，两者可能一起退化。</li>
+</ul>
+
+<h2>4. 第三阶段：continuous action 的物理含义与时间</h2>
+<p><b>当前动作的定义。</b>a<sub>t</sub> = (Δx, Δy, Δθ) 是两个观测之间（间隔 8 个原始帧，fs8）在机器人坐标系下的<b>相对位姿变化</b>，不是速度命令 (v, ω)。训练数据的统计（train 集，fs8）：</p>
+<ul>
+<li>每步位移 0.183–0.383 m（99% 范围），均值 0.294 m，标准差 0.042 m；转角 ±0.459 rad（99% 范围），标准差 0.163 rad。</li>
+<li>每一步都可以用一段圆弧很好地描述（拟合残差约 3 mm），也就是“边走边转”。<b>数据里没有原地转身，也没有停止。</b></li>
+</ul>
+<p><b>Δt 和速度限制为什么确定不了。</b>NavDP 原始数据（LeRobot v2.1 格式）里：<code>info.json</code> 写的是 fps = 30，但没有逐帧时间戳；<code>total_frames</code> 记为 304，parquet 实际只有 152 行，对不上；<code>robot_type</code> 为 unknown。所以既不能可靠地把 fs8 换算成秒，也不知道机器人的速度和角速度上限。队友那边也没有这部分信息。</p>
+<table>
+<tr><th style="width:18%">量</th><th class="l">当前含义</th><th class="l">本阶段怎么处理</th></tr>
+<tr><td>k</td><td class="l">world model 向前预测多少步</td><td class="l">分支排序 k = 2、3；MPC 规划 3 步</td></tr>
+<tr><td>fs8</td><td class="l">每一步跨过 8 个原始帧</td><td class="l">固定</td></tr>
+<tr><td>Δt</td><td class="l">每一步真实执行多久</td><td class="l">数据中无法确定；模拟器里不需要</td></tr>
+<tr><td>(v, ω)</td><td class="l">底层控制的线速度、角速度</td><td class="l">未知；部署到真实机器人前需要确认</td></tr>
+</table>
+<p><b>决定：动作就是相对 waypoint（一段圆弧），不转换成速度命令。</b>在模拟器里，执行一个动作就是让机器人沿这段圆弧移动到新位姿（碰到障碍物时由 navmesh 处理并记为一次碰撞），然后渲染新画面，不需要知道 Δt。候选动作和 CEM 的搜索范围都限制在训练数据的 99% 范围内，并且和训练数据一样不包含原地转身和停止。部署到真实机器人时，再用 v<sub>max</sub>、ω<sub>max</sub> 把每段圆弧换算成执行时间，例如 Δt = max(s / v<sub>max</sub>, |Δθ| / ω<sub>max</sub>)，并确认机器人是否允许原地转弯。</p>
+<p><b>没有为离散动作重新生成数据。</b>上次的 disc / dbin 是把连续位移分箱，不等于真实的离散控制指令；本阶段只验证 continuous。</p>
+
+<h2>5. 第四阶段：模型能否正确排序候选动作</h2>
+<p>整体流程（第 5、6 节共用）：</p>
+<div class="flow">
+<div class="box"><b>① 编码</b>3 帧历史图像 → z<sub>t−2..t</sub>；目标图 → z<sub>g</sub></div><div class="arr">→</div>
+<div class="box"><b>② 提出候选</b>枚举 125 条弧线序列（第 5 节）或 CEM 采样（第 6 节）</div><div class="arr">→</div>
+<div class="box"><b>③ world model 预测</b>每条序列 rollout K 步，得到 ẑ<sub>t+K</sub></div><div class="arr">→</div>
+<div class="box"><b>④ 打分</b>J<sub>i</sub> = d(ẑ<sub>t+K</sub><sup>(i)</sup>, z<sub>g</sub>)，余弦或 MSE 距离</div><div class="arr">→</div>
+<div class="box"><b>⑤ 执行</b>第 5 节：评估选中的一条；第 6 节：执行第一步后重新规划</div>
+</div>
+
+<h3>5.1 先解决“同一起点下其他动作的真实结果”：模拟器与渲染校准</h3>
+<p>现有轨迹只记录了专家实际走的那条路线，无法知道同一起点下其他动作的结果，所以需要模拟器做分支 rollout。我们把 Scene-N1 的 MP3D 网格转成 Habitat 场景，用数据集记录的位姿渲染画面，与同一位置的真实帧对比，校准了坐标变换、相机俯角（−30°）、视场角（68°）、光照和颜色（只在训练场景 <code>JF19kD82Mey</code> 上拟合）。</p>
+<table>
+<tr><th class="l">val 场景 ARNzJeq3xxb，80 帧，B1 encoder 的 latent 余弦距离</th><th>与同一位置真实帧</th><th>与另一位置真实帧</th></tr>
+<tr><td class="l">原始渲染</td><td>0.729</td><td>0.794</td></tr>
+<tr class="hl"><td class="l">校准后的渲染</td><td><b>0.042</b></td><td>0.727</td></tr>
+<tr><td class="l">参照：两张不同位置的真实帧</td><td colspan="2">0.651</td></tr>
+</table>
+<figure>
+<img src="fig/fig_render.png" style="width:100%">
+<figcaption><b>图 2：校准后的渲染。</b>每对图左边是数据集里的真实帧，右边是在同一位姿下的 Habitat 渲染。校准后两者的 latent 差距（0.04）比“换一个位置”（0.65）小一个数量级以上，所以后面的结果主要反映模型，而不是渲染差异。网格破洞填成了 NavDP 数据里同样的灰色。</figcaption>
+</figure>
+
+<h3>5.2 分支排序：在真实执行的结果上检验</h3>
+<p>在 7 个 val 场景的可行走区域上采样起点和目标（最短路径距离 1–3 m），共 700 个 episode。每个 episode 从同一起点在模拟器里真实执行 125 条候选（3 步，每步 0.294 m，转角 ∈ {0, ±0.15, ±0.35} rad），记录走完后到目标的<b>最短路径距离</b>（外部评价，不用模型自己的 latent 距离）。</p>
+<table>
+<tr><th class="l">k = 3，余弦距离</th><th>选中候选走完后<br>到目标的距离 [m]</th><th>比随机多前进 [m]</th><th>补上“随机→最优”<br>差距的比例</th><th>ρ（打分 vs 真实距离）</th><th>选中的会碰撞</th></tr>
+<tr><td class="l">最优（oracle）</td><td>1.409</td><td>0.271</td><td>100%</td><td></td><td></td></tr>
+<tr><td class="l">欧氏距离启发式（知道坐标，作参照）</td><td>1.421</td><td>0.259</td><td>96%</td><td></td><td></td></tr>
+<tr><td class="l">随机</td><td>1.680</td><td>0</td><td>0</td><td></td><td>29%</td></tr>
+<tr><td class="l">不加 B1（3 seeds）</td><td>1.693 ± 0.003</td><td>−0.014</td><td>−5%</td><td>0.01</td><td>30%</td></tr>
+<tr class="hl"><td class="l">B1（3 seeds）</td><td>1.655 ± 0.006</td><td>+0.024</td><td>9%</td><td>0.17</td><td>27%</td></tr>
+</table>
+<p>B1 在 7 个场景里都好于随机（+0.004 … +0.039 m），起点越近优势越大（1.0–1.5 m 时 ρ = 0.30）。不加 B1 在 6 个场景里比随机略差。k = 2、MSE 距离的结论相同。离线实验（Stage 7，用真实未来帧当目标）的结论也一致：B1 在 k = 2–4 时选中误差比随机少 35%–37%，不加 B1 与随机相同。</p>
+
+<h3>5.3 动作表示：哪一种更好</h3>
+<p>同样 700 个 episode，所有表示都是 fs8、H=3、第 10 个 epoch、3 个 seed：</p>
+<table>
+<tr><th class="l">表示</th><th>不加 B1：选中候选 [m]</th><th>B1：选中候选 [m]</th><th>B1：ρ</th><th class="l">离线（Stage 7）B1 的选中误差 k = 4 [m]（随机 0.431）</th></tr>
+<tr><td class="l">xy</td><td>1.691</td><td>1.656</td><td>0.15</td><td class="l">0.297</td></tr>
+<tr class="hl"><td class="l">xyt</td><td>1.693</td><td>1.655</td><td>0.17</td><td class="l">0.281</td></tr>
+<tr class="hl"><td class="l">xysc</td><td>1.693</td><td>1.655</td><td>0.17</td><td class="l">0.282</td></tr>
+<tr><td class="l">dbin（按 train 分位数分箱）</td><td></td><td>1.668</td><td>0.11</td><td class="l">0.301</td></tr>
+<tr><td class="l">disc（前进 / 左 / 右）</td><td>1.685</td><td>1.682</td><td>0.03</td><td class="l">0.387</td></tr>
+<tr><td class="l">随机 / 最优</td><td colspan="2">1.680 / 1.409</td><td></td><td class="l"></td></tr>
+</table>
+<ul>
+<li><b>结论：连续表示 + B1 最好，xyt ≈ xysc ≳ xy，差别在噪声以内；dbin 次之；disc 即使加 B1 也和随机一样。</b>离线和模拟器的排序一致，所以这个问题可以结束了，后面统一用 xysc。</li>
+<li><b>B1 比表示更关键</b>：不加 B1 时所有表示都等于随机。B1 权重（xyt）从 0 增加到 3，选中候选的距离 1.693 → 1.688 → 1.667 → 1.655 → 1.636 m。λ = 3 在模拟器里最好，但只有 1 个 seed，而且离线时 λ = 3 的 latent 距离与真实距离相关性更低，暂时保留 λ = 1。</li>
+</ul>
+
+<h3>5.4 诊断：问题在预测器还是在代价函数</h3>
+<p>把每条候选在模拟器里真实走完，用<b>真实终点画面</b>的 latent 打分。这相当于一个完美的预测器，排序的好坏只取决于“latent 距离”这个代价函数本身。</p>
+<figure>
+<img src="fig/fig_perfect.png" style="width:92%">
+<figcaption><b>图 3：完美预测器诊断。</b>用真实终点画面打分也只能补上 35%–39% 的差距（ρ = 0.29–0.31），这是“latent 距离”作为代价的上限；B1 的预测又把它降到 9%。B1 预测的排序与真实画面排序的一致性 ρ = 0.42（不加 B1 为 0.04）。</figcaption>
+</figure>
+<ul>
+<li><b>代价函数是主要的上限</b>：画面像目标不等于离目标近。目标在墙后、拐角后，或者朝向不同时，latent 距离会给出错误的方向。起点画面与目标的 latent 距离和真实最短路径距离的相关系数只有 0.25–0.28。</li>
+<li><b>预测器是第二个损失</b>：预测的 latent 与真实终点 latent 的余弦距离中位数约 0.30，远大于渲染差距（0.04）。</li>
+<li><b>模型不会避障</b>：选中的候选有 27% 会碰撞（随机 29%）。训练数据只有专家轨迹，没有碰撞样本。</li>
+</ul>
+
+<h2>6. 第五阶段：闭环导航（MPC）</h2>
+<p><b>方法。</b>每一步用 CEM 优化 3 步动作序列（300 个样本、30 个精英、3 次迭代，搜索范围限制在训练动作分布的 99% 以内），代价是第 3 步预测 latent 与目标 latent 的余弦距离；执行第一步，拿到新的真实观测后重新规划。在相同起终点上对比：</p>
+<ul>
+<li>基线：随机、直走、欧氏距离贪心（知道坐标，作参照）、最短路径贪心（oracle）。</li>
+<li>成功：途中任何时刻到目标的最短路径距离 &lt; 0.5 m（由模拟器判断）。另外单独报告“自主停止”：当前画面与目标的 latent 距离 ≤ τ 时模型自己停下，τ 只在训练场景上标定。</li>
+<li>步数上限：2 × 起点距离 / 0.294 m + 10 步。7 个 val 场景，每个距离档 140 个 episode。</li>
+</ul>
+<figure>
+<img src="fig/fig_mpc.png" style="width:96%">
+<figcaption><b>图 4：闭环成功率。</b>模型为 3 个 seed 的均值 ± 标准差；基线为单次运行。</figcaption>
+</figure>
+<table>
+<tr><th class="l">策略</th><th>1–2 m 成功率 / SPL</th><th>2–4 m</th><th>4–8 m</th><th>1–2 m 自主停止成功率 / 停错率</th><th>1–2 m 每回合碰撞</th></tr>
+<tr><td class="l">随机</td><td>0.28 / 0.28</td><td>0.15 / 0.15</td><td>0.07 / 0.07</td><td></td><td>9.7</td></tr>
+<tr><td class="l">直走</td><td>0.33 / 0.33</td><td>0.13 / 0.13</td><td>0.03 / 0.03</td><td></td><td>9.3</td></tr>
+<tr><td class="l">不加 B1</td><td>0.42 / 0.39</td><td>0.14 / 0.13</td><td>0.07 / 0.07</td><td>0.10 / 0.29</td><td>7.8</td></tr>
+<tr class="hl"><td class="l">B1</td><td><b>0.58 / 0.56</b></td><td><b>0.26 / 0.25</b></td><td><b>0.12 / 0.12</b></td><td>0.25 / 0.30</td><td>6.1</td></tr>
+<tr><td class="l">欧氏距离贪心（特权）</td><td>0.96 / 0.94</td><td>0.78 / 0.78</td><td>0.56 / 0.56</td><td></td><td>1.2</td></tr>
+<tr><td class="l">最短路径贪心（oracle）</td><td>0.99 / 0.96</td><td>0.96 / 0.93</td><td>0.95 / 0.94</td><td></td><td>0.6</td></tr>
+</table>
+<ul>
+<li><b>闭环与开环结论一致，差距更明显。</b>单步排序的信号虽然弱，每一步重新规划之后会被累积放大：1–2 m 时 B1 58%，不加 B1 42%，随机 28%。</li>
+<li><b>距离一远就失败</b>：2–4 m 时 26%，4–8 m 时 12%，仍约为随机的 1.7 倍，但远低于知道坐标的贪心策略。</li>
+<li><b>模型自己判断“到了”不可靠</b>：自主停止成功率只有 25%，停错率 30%。用 latent 距离判断是否到达，和用它当代价是同一个问题。</li>
+<li><b>碰撞多</b>：每回合约 6 次（oracle 0.6 次）。每步规划约 22 ms（GPU）。</li>
+</ul>
+<h3>6.1 闭环示例视频</h3>
+<p style="text-align:left">7 个 val 场景，每个场景 3 个距离档 × 2 个 episode，一共录了 42 段视频（<code>le-wm/nav/results/report/videos/</code>，逐段结果见同目录的 <code>README.md</code>）。每段视频同时显示 4 个策略，从同一个起点出发：</p>
+<ul>
+<li><b>上排</b>：最左是目标图，右边依次是<span style="color:#d62728;font-weight:600">不加 B1（红）</span>、<span style="color:#2ca02c;font-weight:600">B1（绿）</span>、<span style="color:#1f77b4;font-weight:600">随机（蓝）</span>、<span style="color:#ff7f0e;font-weight:600">最短路径贪心 oracle（橙）</span>的第一人称画面。标签显示步数、当前到目标的最短路径距离（geo）、模型的 latent 距离，以及结束状态（REACHED / END）。</li>
+<li><b>下排</b>：俯视图。浅灰是可走区域，深灰是障碍物；白方块是起点，圆圈是目标。</li>
+<li><b>线的长短</b>：baseline 一到目标就停；模型到了目标附近如果没有自己判断“到了”，最多再走 15 步；一直到不了就走满步数上限（2 × 起点距离 / 0.294 m + 10 步），所以失败的策略线会很长。下面的图都是视频的最后一帧，模型的终点可能已经离开了它途中最接近目标的位置。</li>
+</ul>
+<p><b>挑选标准：起点距离 2 m 以上，B1 成功，而不加 B1 和随机都失败。</b>42 段里符合的只有 2 段（例 1、例 2）；另外有 1 段起点 1.93 m，只差一点到 2 m（例 3）。再附 1 段反例（例 4）。表中括号里是途中离目标最近的距离；成功 = 途中到达 0.5 m 以内。</p>
+
+<table>
+<tr><th class="l">例子</th><th>起点</th><th>不加 B1</th><th>B1</th><th>B1 自主停止</th><th>随机</th><th>oracle</th></tr>
+<tr class="hl"><td class="l">例 1：yqstnuAEVhm / bin2-4_ep1</td><td>2.59 m</td><td class="no">失败（2.02）</td><td class="ok">成功（0.24）</td><td class="ok">是</td><td class="no">失败（2.23）</td><td>成功（0.31）</td></tr>
+<tr><td class="l">例 2：YmJkqBEsHnH / bin2-4_ep1</td><td>2.71 m</td><td class="no">失败（2.00）</td><td class="ok">成功（0.46）</td><td>否</td><td class="no">失败（1.19）</td><td>成功（0.34）</td></tr>
+<tr><td class="l">例 3：yqstnuAEVhm / bin1-2_ep2</td><td>1.93 m</td><td class="no">失败（1.29）</td><td class="ok">成功（0.31）</td><td>否</td><td class="no">失败（1.10）</td><td>成功（0.46）</td></tr>
+<tr><td class="l">例 4（反例）：JmbYfDe2QKZ / bin2-4_ep1</td><td>3.65 m</td><td class="ok">成功（0.26）</td><td class="no">失败（0.62）</td><td>否</td><td class="no">失败（2.60）</td><td>成功（0.41）</td></tr>
+</table>
+
+<figure>
+<img src="fig/ex1_yqstnuAEVhm_bin2-4_ep1.png" style="width:100%">
+<figcaption><b>图 5：例 1（最推荐），yqstnuAEVhm，起点 2.59 m。</b>B1（绿线）绕过中间的障碍物，10 步走到离目标 0.24 m，并且自己判断“到了”停下（latent 距离 0.010 ≤ τ），是一次完整走通的闭环：<b>规划 → 到达 → 自己停止</b>，路线和 oracle（橙线）几乎一致。不加 B1（红）和随机（蓝）都往左上方走，最终停在 2 m 开外，几乎没有靠近目标。</figcaption>
+</figure>
+<figure>
+<img src="fig/ex2_YmJkqBEsHnH_bin2-4_ep1.png" style="width:100%">
+<figcaption><b>图 6：例 2，YmJkqBEsHnH，起点 2.71 m。</b>B1（绿）转向左侧的走廊，跟 oracle 走的是同一个方向，途中最近到 0.46 m，刚好擦线进入 0.5 m；但它没有自己停下来，最后一帧已经退到 0.60 m。不加 B1（红）先往右上走进了另一个房间，随机（蓝）一直往下直走。说服力比例 1 弱。</figcaption>
+</figure>
+<figure>
+<img src="fig/ex3_yqstnuAEVhm_bin1-2_ep2.png" style="width:100%">
+<figcaption><b>图 7：例 3，yqstnuAEVhm，起点 1.93 m。</b>B1（绿）往右走到离目标 0.31 m，没有自己停下，之后继续往下走开（最后一帧 0.56 m）。不加 B1（红）往上、随机（蓝）往右上，两者都离目标越来越远。</figcaption>
+</figure>
+<figure>
+<img src="fig/ex4_JmbYfDe2QKZ_bin2-4_ep1.png" style="width:100%">
+<figcaption><b>图 8：例 4（反例），JmbYfDe2QKZ，起点 3.65 m。</b>这次是不加 B1（红）从右侧绕过去，到达 0.26 m；B1（绿）从左侧绕，最近到 0.62 m，没有进入 0.5 m，之后被障碍物挡住往下偏。说明 B1 并不是每次都更好。</figcaption>
+</figure>
+
+<p><b>怎么解读这些视频：</b></p>
+<ul>
+<li><b>这几段是从 42 段里挑出来的好例子，不代表平均水平。</b>要看整体表现，应以上面的统计结果为准：1–2 m 档 B1 成功率 0.58、不加 B1 0.42、随机 0.28；2–4 m 档 B1 0.26、不加 B1 0.14、随机 0.15。</li>
+<li><b>远距离基本失败</b>：视频里 4–8 m 档的 14 段，两个模型全部没有到达（统计上 B1 在 4–8 m 的成功率也只有 0.12）。</li>
+<li><b>也有反过来的情况</b>（例 4）：不加 B1 成功、B1 失败。42 段里这样的情况有 4 段，B1 成功而不加 B1 失败的有 8 段。</li>
+<li><b>自主停止仍是弱点</b>：例 2、例 3 里 B1 都到了目标附近，但没有判断出“到了”，又走开了。</li>
+</ul>
+
+<h2>7. 执行顺序回顾与下一步</h2>
+<table>
+<tr><th style="width:5%">顺序</th><th class="l" style="width:30%">任务</th><th style="width:10%">状态</th><th class="l">得到的结论</th></tr>
+<tr><td>①</td><td class="l">train / val MSE、copy-last 与多步误差曲线</td><td class="ok">完成</td><td class="l">val 上已收敛；问题是跨场景泛化，不是训练轮数</td></tr>
+<tr><td>②</td><td class="l">SIGReg、std、effective rank、probe</td><td class="ok">完成</td><td class="l">没有坍塌；B1 的比值改善主要来自 latent 尺度；新场景上表示质量明显下降</td></tr>
+<tr><td>③</td><td class="l">固定 continuous 配置，明确位姿、速度与时间</td><td class="warn">部分完成</td><td class="l">动作 = 相对 waypoint，模拟器里不需要 Δt；真实机器人的 v<sub>max</sub>、ω<sub>max</sub> 和是否允许原地转弯仍需确认</td></tr>
+<tr><td>④</td><td class="l">候选动作排序</td><td class="ok">完成</td><td class="l">B1 能帮助选动作但信号弱（补上 9% 的差距）；连续表示 + B1 最好</td></tr>
+<tr><td>⑤</td><td class="l">MPC 闭环</td><td class="ok">完成</td><td class="l">1–2 m 成功率 58%（随机 28%），4–8 m 12%</td></tr>
+<tr><td>⑥</td><td class="l">根据失败原因做针对性改进</td><td class="warn">待做</td><td class="l">见下</td></tr>
+</table>
+<p><b>下一步（按失败原因排序）：</b></p>
+<ol>
+<li><b>代价函数（主要瓶颈）。</b>不再假设“latent 距离 = 离目标多远”。可以在 latent 上学一个距离 / 可达性函数（用轨迹内的时间步差或模拟器的最短路径距离作监督），或者使用中间子目标，把远距离目标拆成几段近距离目标。完美预测器诊断可以直接用来评估新的代价函数，不必先跑闭环。</li>
+<li><b>数据（避障与泛化）。</b>在模拟器里收集非专家动作和碰撞样本，补上训练数据里缺失的“走错”和“撞墙”；同时这也是上次报告提出的“跨轨迹 / 分支结果”的来源。增加场景多样性，缩小 train / val 差距。</li>
+<li><b>预测器。</b>多步预测 k=8 时几乎没有信息量；可以尝试多步 rollout 损失。B1 的 λ = 3 补 seed。</li>
+<li><b>真实部署前</b>确认机器人的速度、角速度限制和执行方式。</li>
+</ol>
+
+<h3>局限</h3>
+<ul class="note">
+<li>颜色映射只在一个训练场景上拟合；详细的渲染检查只在一个 val 场景上做，其余 6 个 val 场景用同一套设置。</li>
+<li>候选和 CEM 只覆盖训练动作分布内的弧线，没有原地转身或停止。</li>
+<li>闭环的成功判定使用模拟器的真实位置；模型的自主停止单独报告。每个场景每个距离档 20 个 episode。</li>
+<li>λ = 0.1 / 0.3 / 3 只有 1 个 seed。所有模型都只训练了 10 个 epoch（已在 val 上收敛）。</li>
+</ul>
+
+</body>
+</html>

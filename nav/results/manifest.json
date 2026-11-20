@@ -1,0 +1,233 @@
+{
+  "assembled_on": "2026-11-20",
+  "code_commit": "60967fc478517320ca75dd6cc5fbe7708f56cf53",
+  "scope": "Local exported summaries and report; per-seed raw Torch logs and checkpoints are not included.",
+  "files": [
+    {
+      "path": "stage4/stage4_action_reliance.png",
+      "source": "Capstone/lewm-navigation-capstone/yf/results/stage4/stage4_action_reliance.png",
+      "sha256": "eadfeba493fd64e403bf866a8c51ed4b547639ba5793bfbe2fa811bc952275fe"
+    },
+    {
+      "path": "stage4/stage4_curves.json",
+      "source": "Capstone/lewm-navigation-capstone/yf/results/stage4/stage4_curves.json",
+      "sha256": "c6892e107a7146ef520aca4ad2bf619ba6f2897360b763db9c7225f2edf72f60"
+    },
+    {
+      "path": "stage4/stage4_rollout_h1.png",
+      "source": "Capstone/lewm-navigation-capstone/yf/results/stage4/stage4_rollout_h1.png",
+      "sha256": "013ad47a00964213eb7aae35522e4c5f4f87e3a70781a1241667044fd0df7b74"
+    },
+    {
+      "path": "stage4/stage4_rollout_h3.png",
+      "source": "Capstone/lewm-navigation-capstone/yf/results/stage4/stage4_rollout_h3.png",
+      "sha256": "d33d07a769150e4c2a4f5dd62a81b1219104d1e87ce6c0e073050bb33639c871"
+    },
+    {
+      "path": "stage4/stage4_table.md",
+      "source": "Capstone/lewm-navigation-capstone/yf/results/stage4/stage4_table.md",
+      "sha256": "5115ecc515b969810e02dbcef8a123b2ad144c875610a8e715c4a796402ce48b"
+    },
+    {
+      "path": "stage5/b1_inverse_dynamics.txt",
+      "source": "Capstone/lewm-navigation-capstone/yf/results/stage5/b1_inverse_dynamics.txt",
+      "sha256": "dd0adc239689e8e2ce3669d6e0169c2aa4bd7e0e36d00965314af9f6481ef9ef"
+    },
+    {
+      "path": "stage5/b1_six_reps_fs8.txt",
+      "source": "Capstone/lewm-navigation-capstone/yf/results/stage5/b1_six_reps_fs8.txt",
+      "sha256": "3862108f62932026b897636c704d8be8002ea272e9c1626197e698b5fc9caef1"
+    },
+    {
+      "path": "stage6/stage6_epochs.md",
+      "source": "Capstone/lewm-navigation-capstone/yf/results/stage6/stage6_epochs.md",
+      "sha256": "a4010953b279583ecb16f38722e5d2fe37f8e6a25c95dcc9b18a073b5d41f2ca"
+    },
+    {
+      "path": "stage6/stage6_epochs.png",
+      "source": "Capstone/lewm-navigation-capstone/yf/results/stage6/stage6_epochs.png",
+      "sha256": "3610bc6ca903470d276ef747924c5e9e2abfd7948cffbe1119791bfd546c94fd"
+    },
+    {
+      "path": "stage7/README.md",
+      "source": "Capstone/lewm-navigation-capstone/yf/results/stage7/README.md",
+      "sha256": "0c293cc875c4315455b79e2ee6d5a410cfd55ffd23991c9f006034183d109ad2"
+    },
+    {
+      "path": "stage7/stage7_goal.md",
+      "source": "Capstone/lewm-navigation-capstone/yf/results/stage7/stage7_goal.md",
+      "sha256": "67ea2728da76d4c436d0a6f23a0be3a253ab1ed50b0469e2634a27a7fba56ee5"
+    },
+    {
+      "path": "stage7/stage7_goal.png",
+      "source": "Capstone/lewm-navigation-capstone/yf/results/stage7/stage7_goal.png",
+      "sha256": "86d93974a7a757676fa1340e1be4f787feed77fd764ce557b20df99940d71320"
+    },
+    {
+      "path": "sim/README.md",
+      "source": "Capstone/lewm-navigation-capstone/yf/results/sim/README.md",
+      "sha256": "1718e4f7791645bbad980092b71d56dbb9bc2c9a80177a9d77c635516254ee2d"
+    },
+    {
+      "path": "sim/branch_k2_cos.md",
+      "source": "Capstone/lewm-navigation-capstone/yf/results/sim/branch_k2_cos.md",
+      "sha256": "f5b2d4bbaca3d5c85e2997285e79f792cc0782c1d37953fea4ff0eab1cef95ab"
+    },
+    {
+      "path": "sim/branch_k3_cos.md",
+      "source": "Capstone/lewm-navigation-capstone/yf/results/sim/branch_k3_cos.md",
+      "sha256": "6cb5242c613a49331c3e61609dd86859eab585afc89b10255cb044ce7d862bef"
+    },
+    {
+      "path": "sim/branch_k3_cos_reps.md",
+      "source": "Capstone/lewm-navigation-capstone/yf/results/sim/branch_k3_cos_reps.md",
+      "sha256": "55a045f6268f81196054e1407cc4dc052783a27566eec8332737d05dce9ae2ee"
+    },
+    {
+      "path": "sim/branch_k3_cos_true.md",
+      "source": "Capstone/lewm-navigation-capstone/yf/results/sim/branch_k3_cos_true.md",
+      "sha256": "a9bfe5e82d4bf5d5a107e31f69bc87c19ee99812b07a8846fe05fa60af96f66d"
+    },
+    {
+      "path": "sim/branch_k3_mse.md",
+      "source": "Capstone/lewm-navigation-capstone/yf/results/sim/branch_k3_mse.md",
+      "sha256": "85047f9c57bef3519c0993d11d44b26daebedf50697c721aba46a332cb712db8"
+    },
+    {
+      "path": "sim/check_render_sweep_val_ARNzJeq3xxb.json",
+      "source": "Capstone/lewm-navigation-capstone/yf/results/sim/check_render_sweep_val_ARNzJeq3xxb.json",
+      "sha256": "e76fd9e5b159b60dd3468a4c9227d25799cfbebd2cfacc09fdf961d1f55f44f2"
+    },
+    {
+      "path": "sim/check_render_val_ARNzJeq3xxb.json",
+      "source": "Capstone/lewm-navigation-capstone/yf/results/sim/check_render_val_ARNzJeq3xxb.json",
+      "sha256": "bf19091321602bf3397984bc389a7dc61b6ee78df131b164aa73a6da3c23ba02"
+    },
+    {
+      "path": "sim/colormap_JF19kD82Mey.json",
+      "source": "Capstone/lewm-navigation-capstone/yf/results/sim/colormap_JF19kD82Mey.json",
+      "sha256": "e7b64b278bb921529430dd81c4998e14020739275bdeaae021ab348d904ea5d6"
+    },
+    {
+      "path": "sim/mpc_summary.md",
+      "source": "Capstone/lewm-navigation-capstone/yf/results/sim/mpc_summary.md",
+      "sha256": "5ad6274ee437bd1c2c3812ca0af0628521a5699ab1c65c2b57d930a42c73f912"
+    },
+    {
+      "path": "sim/mpc_tau_JF19kD82Mey.json",
+      "source": "Capstone/lewm-navigation-capstone/yf/results/sim/mpc_tau_JF19kD82Mey.json",
+      "sha256": "edd2f8e5e17716c364ff81141d3077999662a76757b16bcb7ff67e5e34109537"
+    },
+    {
+      "path": "sim/val_ARNzJeq3xxb_real_vs_render_calibrated.png",
+      "source": "Capstone/lewm-navigation-capstone/yf/results/sim/val_ARNzJeq3xxb_real_vs_render_calibrated.png",
+      "sha256": "69be830a4ed6ee7ba285b9275c3c397f9a68f85f962a9a1c017e96069769afc3"
+    },
+    {
+      "path": "sim/val_ARNzJeq3xxb_real_vs_render_raw.png",
+      "source": "Capstone/lewm-navigation-capstone/yf/results/sim/val_ARNzJeq3xxb_real_vs_render_raw.png",
+      "sha256": "028c410a577e60ea22200e395d7bd289a3c26438706220a66a1b4860842fab65"
+    },
+    {
+      "path": "data/action_norm.json",
+      "source": "Capstone/lewm-navigation-capstone/yf/data/action_norm.json",
+      "sha256": "8cd1c44e77ce2953c1992f2359cc3060de1a17bdae6ed3ab4d2b717734fc9561"
+    },
+    {
+      "path": "data/splits.json",
+      "source": "Capstone/lewm-navigation-capstone/yf/data/splits.json",
+      "sha256": "6e937d9959ae7b3aa1508fdedd1e8e68d1728af97a1f99795eeb49eef6bd384b"
+    },
+    {
+      "path": "protocol/B1_ALIGNMENT.md",
+      "source": "Capstone/lewm-navigation-capstone/yf/docs/B1_ALIGNMENT.md",
+      "sha256": "268ee45bc009ce380078c3cccda2c1d0a08fa5fa55abfaa0998089771fb52d6f"
+    },
+    {
+      "path": "report/LeWM_Nav_report_2026-11-13.pdf",
+      "source": "Capstone/Experiment/results/report/LeWM_Nav_report_2026-11-13.pdf",
+      "sha256": "80e87bd723e5bf4c61ac874d6c3c4141295be8e6ef6b11d3def1d8797e348f6b"
+    },
+    {
+      "path": "report/source_2026-11-13/fig/ex1_yqstnuAEVhm_bin2-4_ep1.png",
+      "source": "Capstone/Experiment/results/report/source_2026-11-13/fig/ex1_yqstnuAEVhm_bin2-4_ep1.png",
+      "sha256": "c80ecbedf77637de6bd668639f5175e3ae023ca08fa2daa24f4243ce3121986b"
+    },
+    {
+      "path": "report/source_2026-11-13/fig/ex2_YmJkqBEsHnH_bin2-4_ep1.png",
+      "source": "Capstone/Experiment/results/report/source_2026-11-13/fig/ex2_YmJkqBEsHnH_bin2-4_ep1.png",
+      "sha256": "2cf55f39073e8a42af3f2c470a2ca23294975a780d136f3c425bdb8729155b21"
+    },
+    {
+      "path": "report/source_2026-11-13/fig/ex3_yqstnuAEVhm_bin1-2_ep2.png",
+      "source": "Capstone/Experiment/results/report/source_2026-11-13/fig/ex3_yqstnuAEVhm_bin1-2_ep2.png",
+      "sha256": "5733c23571f2278d6d9636a0024c39b3f7881d0ade072362c05d370c89f34110"
+    },
+    {
+      "path": "report/source_2026-11-13/fig/ex4_JmbYfDe2QKZ_bin2-4_ep1.png",
+      "source": "Capstone/Experiment/results/report/source_2026-11-13/fig/ex4_JmbYfDe2QKZ_bin2-4_ep1.png",
+      "sha256": "54dcd6f9c4461a62bce729f2ca12e27f604b1dfa421501aba46ca0a564a02082"
+    },
+    {
+      "path": "report/source_2026-11-13/fig/fig_mpc.png",
+      "source": "Capstone/Experiment/results/report/source_2026-11-13/fig/fig_mpc.png",
+      "sha256": "2a9cd81187debc86fc071be501274ece4fdd449539d30f37aaa8d8ccbd796119"
+    },
+    {
+      "path": "report/source_2026-11-13/fig/fig_perfect.png",
+      "source": "Capstone/Experiment/results/report/source_2026-11-13/fig/fig_perfect.png",
+      "sha256": "74ef71f31043f3f1156a274f6e7f22bf38eb42d594a559f0e482ce1d0a734f6a"
+    },
+    {
+      "path": "report/source_2026-11-13/fig/fig_render.png",
+      "source": "Capstone/Experiment/results/report/source_2026-11-13/fig/fig_render.png",
+      "sha256": "378e5e858e621ae64d179605b5c23768179ccf0d5a748577e23ceedfd4b078a8"
+    },
+    {
+      "path": "report/source_2026-11-13/fig/fig_stage6_epochs.png",
+      "source": "Capstone/Experiment/results/report/source_2026-11-13/fig/fig_stage6_epochs.png",
+      "sha256": "3610bc6ca903470d276ef747924c5e9e2abfd7948cffbe1119791bfd546c94fd"
+    },
+    {
+      "path": "report/source_2026-11-13/report.html",
+      "source": "Capstone/Experiment/results/report/source_2026-11-13/report.html",
+      "sha256": "56c7599369fc7f0d97c73eeee9dc006d6e44aa1b2b92105d09cd320c33207aae"
+    },
+    {
+      "path": "report/feature_loss_controller_audit_2026-11-19.md",
+      "source": "Capstone/Experiment/results/report/feature_loss_controller_audit_2026-11-19.md",
+      "sha256": "ed9bb5f2fa404d5c8a97e2234e3445854a65baff5a991406c544b5b389d08303"
+    },
+    {
+      "path": "stage6/stage6_epochs_summary.csv",
+      "source": "Derived from stage6/stage6_epochs.md; rounded seed aggregates, not raw logs.",
+      "sha256": "ab99f5c5a8b7f9d94d1b5f21d59b3304a33f58d285183ace1d252b8e06f7a4b5"
+    },
+    {
+      "path": "README.md",
+      "source": "Results index and interpretation assembled on 2026-11-20.",
+      "sha256": "8e7e055914af4a185a3b4c63d177b090e6dbc5c3c07f1e16f7608ff2c52a4ae1"
+    }
+  ],
+  "published_evaluation_code": {
+    "repository": "fanxinyusarah/lewm-navigation-capstone",
+    "commit": "080e49752c12f5784f67014c0105b7717269a831",
+    "directory": "yf/nav",
+    "linked_files_verified_equal": [
+      "eval_goal.py",
+      "eval_latent.py",
+      "sim/branch_rank.py",
+      "sim/check_render.py",
+      "sim/convert_scene.py",
+      "sim/habitat_bridge.py",
+      "sim/lewm_sim.py",
+      "sim/mpc.py",
+      "slurm/prep_scenes.sbatch",
+      "slurm/sim.sbatch",
+      "slurm/stage6_runs.txt",
+      "summarize_epochs.py",
+      "summarize_goal.py",
+      "train_nav.py"
+    ]
+  }
+}
